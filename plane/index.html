@@ -1,0 +1,463 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+        <title></title>
+        <style media="screen">
+            * {
+                margin: 0;
+                padding: 0;
+            }
+            html,body {
+                height: 100%;
+            }
+            canvas {
+                /*box-shadow: 0 0 50px black;*/
+                display: block;
+                margin: 0 auto;
+                cursor: none;
+            }
+            span {
+                font-size: 30px;
+                position: fixed;
+                left: 10px;
+                top: 10px;
+            }
+        </style>
+    </head>
+    <body>
+
+        <canvas id="canvas" width="375" height="667"></canvas>
+        <span id="progress">0</span>
+
+    </body>
+    <script type="text/javascript">
+    canvas.width = document.body.offsetWidth;
+    canvas.height = document.body.offsetHeight;
+    var p = document.getElementById('progress');
+    var fen = 0;
+    var m = 0;
+    var timer = null;
+        var v = 1;
+        var imgArc = {
+            'background':'img/background.png',
+            'plane':'img/plane.png',
+            'enemy1':'img/enemy1.png',
+            'enemy3':'img/enemy3.png',
+            'enemy2':'img/enemy2.png',
+            'bullet1':'img/bullet1.png',
+            'bullet2':'img/bullet2.png',
+            'bullet10':'img/bullet10.png'
+        }
+        var loadedArr = {};
+        var imgNum = 0;
+        for (key in imgArc){
+            imgNum++;
+        }
+
+        var imgLoading = 0;
+
+        for(key in imgArc){
+            var img = new Image();
+            img.src = imgArc[key];
+            img.onload = (function(a){
+                return function(){
+                    imgLoading++;
+                    loadedArr[a] = this;
+
+                    if (imgLoading == imgNum) {
+                        All();
+                    }
+                }
+            })(key)
+        }
+
+
+        function All(){
+            var canvas = document.getElementById('canvas');
+            var ctx = canvas.getContext('2d');
+
+            //背景图滚动
+            var bgm = {
+                x: 0,
+                y: 0,
+                w: canvas.width,
+                h: canvas.height,
+                draw: function(){
+                    ctx.drawImage(loadedArr.background,this.x,this.y,this.w,this.h);
+                    ctx.drawImage(loadedArr.background,this.x,this.y-this.h,this.w,this.h);
+                },
+                move: function(){
+                    this.y += v;
+                    if (this.y >= this.h) {
+                        this.y = 0;
+                    }
+                    this.draw();
+                },
+            }
+
+            //自己的飞机
+            var plane = {
+                w: 66,
+                h: 82,
+                x: canvas.width / 2 - 33,
+                y: canvas.height - 82,
+                xL: 1,
+                draw1: function () {
+                    var n;
+                    switch (this.xL) {
+                        case 1:n = 0*this.w
+                            break;
+                        case 0:n = 4*this.w
+                            break;
+                        }
+                    ctx.drawImage(loadedArr.plane, n, 0, this.w, this.h, this.x, this.y, this.w, this.h);
+                },
+                draw2: function () {
+                    var n;
+                    switch (this.xL) {
+                        case 1:n = 1*this.w
+                            break;
+                        case 0:n = 4*this.w
+                            break;
+                        }
+                    ctx.drawImage(loadedArr.plane, n, 0, this.w, this.h, this.x, this.y, this.w, this.h);
+                }
+            }
+
+            canvas.onmousemove = function (e) {
+                var ev = e || window.event;
+
+                var x = ev.clientX - canvas.offsetLeft;
+                var y = ev.clientY - canvas.offsetTop;
+
+                plane.x = x - plane.w / 2;
+                plane.y = y - plane.h / 2;
+            }
+
+            //子弹1
+            function ZiDan() {
+                this.w = loadedArr.bullet1.width;
+                this.h = loadedArr.bullet1.height;
+                this.x = plane.x+33-loadedArr.bullet1.width/2-23;
+                this.y = plane.y-10 ;
+                // this.s1 = this.x;
+                // this.s2 = this.x+this.w;
+                this.move = function(){
+                    this.y -= 5;
+                    ctx.drawImage(loadedArr.bullet1,this.x,this.y,this.w,this.h);
+                }
+            }
+            //子弹2
+            function ZiDan2() {
+                this.w = loadedArr.bullet1.width;
+                this.h = loadedArr.bullet1.height;
+                this.x = plane.x+33-loadedArr.bullet1.width/2+23;
+                this.y = plane.y-10 ;
+                // this.s1 = this.x;
+                // this.s2 = this.x+this.w;
+                this.move = function(){
+                    this.y -= 5;
+                    ctx.drawImage(loadedArr.bullet1,this.x,this.y,this.w,this.h);
+                }
+            }
+
+            //敌方飞机
+            function Diji(){
+                var a = random(0,10);
+                num = 1;
+                if (a >= 9.5) {
+                    this.w = loadedArr.enemy2.width/10;
+                    this.h = loadedArr.enemy2.height;
+                    this.v = 1.2*v;
+                    this.xL = 20;
+                    this.fen = 30;
+                    this.tu = 10;
+                }else if (a > 8) {
+                    this.w = loadedArr.enemy3.width/6;
+                    this.h = loadedArr.enemy3.height;
+                    this.v = 1.5*v;
+                    this.xL = 10;
+                    this.fen = 10;
+                    this.tu = 6;
+                }else {
+                    this.w = loadedArr.enemy1.width/5 ;
+                    this.h = loadedArr.enemy1.height;
+                    this.v = 2*v;
+                    this.xL = 1;
+                    this.fen = 1;
+                    this.tu = 5;
+                }
+                this.x = random(0,canvas.width-this.w);
+                this.y = -this.h;
+                this.l = this.y-this.h;
+                // this.s1 = this.x;
+                // this.s2 = this.x+this.w;
+                this.move = function(){
+                    this.y += this.v;
+                    var n = 0;
+                    if (a >= 9.5) {
+                        switch (this.tu) {
+                            case 10:n = 0*this.w
+                                break;
+                            case 9:n = 1*this.w
+                                break;
+                            case 8:n = 2*this.w
+                                break;
+                            case 7:n = 3*this.w
+                                break;
+                            case 6:n = 4*this.w
+                                break;
+                            case 5:n = 5*this.w
+                                break;
+                            case 4:n = 6*this.w
+                                break;
+                            case 3:n = 7*this.w
+                                break;
+                            case 2:n = 8*this.w
+                                break;
+                            case 1:n = 9*this.w
+                                break;
+                        }
+                        ctx.drawImage(loadedArr.enemy2,n,0,this.w,this.h,this.x,this.y,this.w,this.h);
+                    }else if (a > 8) {
+                        switch (this.tu) {
+                            case 6:n = 0*this.w
+                                break;
+                            case 5:n = 1*this.w
+                                break;
+                            case 4:n = 2*this.w
+                                break;
+                            case 3:n = 3*this.w
+                                break;
+                            case 2:n = 4*this.w
+                                break;
+                            case 1:n = 5*this.w
+                                break;
+                        }
+                        ctx.drawImage(loadedArr.enemy3,n,0,this.w,this.h,this.x,this.y,this.w,this.h);
+                    }else {
+                        switch (this.tu) {
+                            case 5:n = 0*this.w
+                                break;
+                            case 4:n = 1*this.w
+                                break;
+                            case 3:n = 2*this.w
+                                break;
+                            case 2:n = 3*this.w
+                                break;
+                            case 1:n = 4*this.w
+                                break;
+                            }
+                        ctx.drawImage(loadedArr.enemy1,n,0,this.w,this.h,this.x,this.y,this.w,this.h);
+                    }
+                }
+            }
+
+            bgm.draw();
+            plane.draw1();
+
+
+
+
+
+
+            var a = 0;
+            var zidans = [];
+            var dijis = [];
+            var die = [];
+            var pinlv = 120;
+
+            //帧动画
+            function gameloop(){
+                a++;
+
+                // 根据分数改变敌机出现的频率
+                if (fen < 300) {
+                    pinlv = 60;
+                }else if (fen < 1000) {
+                    pinlv = 30;
+                }else if (fen < 2000) {
+                    pinlv = 10;
+                }else {
+                    pinlv = 5;
+                }
+
+
+                // 清除画布
+                ctx.clearRect(0,0,canvas.width,canvas.height);
+                // 背景滚动，速度为1
+                bgm.move();
+
+
+                // 飞机喷火
+                if (a%4 == 0) {
+                    plane.draw1();
+                }else {
+                    plane.draw2();
+                }
+
+                // 画子弹
+                if (a%4 == 0) {
+                    if (a/4%2 == 0) {
+                        var zidan = new ZiDan();
+                        // console.log('a');
+                        zidans.push(zidan);
+                    }else {
+                        var zidan = new ZiDan2();
+                        // console.log('a');
+                        zidans.push(zidan);
+                    }
+                }
+                // 画敌机
+                if (a%pinlv == 0) {
+                    var diji = new Diji();
+                    dijis.push(diji);
+                }
+                // 超出屏幕的子弹删除
+                for (var i = 0; i < zidans.length; i++) {
+                    zidans[i].move();
+                    if (zidans[0].y < 0) {
+                        // zidans.splice(0,1);
+                        zidans.shift();
+                        // console.log(zidans.length);
+                    }
+                }
+                // 超出屏幕的敌机删除
+                for (var j = 0; j < dijis.length; j++) {
+
+                    dijis[j].move();
+                    if (dijis[0].y > canvas.height) {
+                        dijis.shift();
+                    }
+                }
+                // 死亡或爆炸的敌机
+                for (var i = 0; i < die.length; i++) {
+                    die[i].move();
+                    if (a%7 == 0) {
+                        die[i].tu -=1;
+                        if (die[i].tu <= 0) {
+                            die.splice(i,1);
+                        }
+                    }
+                }
+
+
+
+
+                zhuang();
+
+                if (m == 1) {
+                    gameover();
+                    return;
+                }
+                if (peng()) {
+                    m = 1;
+                    plane.xL = 0;
+                    window.cancelAnimationFrame(timer);
+                }
+
+                timer = window.requestAnimationFrame(gameloop);
+            }
+            gameloop();
+
+
+
+            // 判断子弹和敌机是否相撞
+            function zhuang(){
+                for (var j = 0; j < dijis.length; j++) {
+                    var fj = dijis[j];
+                    var s1 = fj.y + fj.h/2;
+                    var o1 = fj.x+fj.w/2;
+
+                    for (var i = 0; i < zidans.length; i++) {
+                        var zd = zidans[i];
+                        var s2 = zd.y + zd.h/2;
+                        var o2 = zd.x+zd.w/2;
+
+                        if (Math.abs(o1 - o2) < (zd.w+fj.w)/2 && Math.abs(s1 - s2) < (zd.h+fj.h)/2) {
+                            zidans.splice(i,1);
+                            fj.xL -= 1;
+                            if (fj.xL <= 0) {
+                                fen += fj.fen;
+                                p.innerHTML = fen;
+                                die.push(fj);
+                                dijis.splice(j,1);
+                            }
+                        }
+                    }
+                }
+            }
+
+            // 判断敌机和自己是否相撞
+            function peng(){
+                for (var j = 0; j < dijis.length; j++) {
+                    var fj = dijis[j];
+                    var s1 = fj.y + fj.h/2;
+                    var o1 = fj.x+fj.w/2;
+                    var s2 = plane.y + plane.h/2;
+                    var o2 = plane.x+plane.w/2;
+                    return (Math.abs(o1 - o2) < (plane.w+fj.w)/2 && Math.abs(s1 - s2) < (plane.h+fj.h)/2)
+
+
+                }
+
+            }
+
+
+            //touch事件
+            canvas.addEventListener('touchstart', function (e) {
+                var ev = e || window.event;
+                if (ev.touches.length == 1) { // 一根手指触摸
+                    ev.preventDefault();
+                    var x = ev.touches[0].clientX;
+                    var y = ev.touches[0].clientY;
+
+                    // 判断是否点到了飞机
+                    if ((x > plane.x) && (x < plane.x + plane.w) && (y > plane.y) && (y < plane.y + plane.h)) {
+                        // 获取差值
+                        var disX = x - plane.x;
+                        var disY = y - plane.y;
+
+                        // 手指移动
+                        document.addEventListener('touchmove',function fun(e) {
+                            var ev = e || window.event;
+                            var newX = event.touches[0].clientX - disX;
+                            var newY = event.touches[0].clientY - disY;
+
+                            // 临界值
+                            (newX <= -plane.w / 2 + 3) && (newX = -plane.w / 2 + 3);
+                            (newX >= canvas.width - plane.w / 2 - 3) && (newX = canvas.width - plane.w / 2 - 3);
+                            (newY <= 0) && (newY = 0);
+                            (newY >= canvas.height - plane.h) && (newY = canvas.height - plane.h);
+
+                            // 修改飞机的位置
+                            plane.x = newX;
+                            plane.y = newY;
+                        }, false);
+                    }
+                }
+            }, false);
+        }
+
+
+
+
+        //游戏结束显示
+        function gameover() {
+
+
+            ctx.font = "60px Harrington";
+            ctx.textAlign = "center";
+            ctx.textBaseline = "middle";
+            ctx.fillText("GAME OVER", canvas.width / 2, canvas.height / 2);
+        }
+        //随机数
+        function random(min,max){
+            return (Math.random()*(max-min)+min);
+        }
+
+
+    </script>
+</html>
